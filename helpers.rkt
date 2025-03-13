@@ -3,21 +3,20 @@
 (require flomat)
 
 ; contract out
-(provide    flomat-abs
+(provide    .abs!
             flomat-special-value?
             flomat-diagonal?
             exponentiate-diagonal)
 
-(define (flomat-abs A)
+(define (.abs! A)
     (define n (nrows A))
     (define m (ncols A))
-    (define result (make-flomat n m))
     (for ([i (in-range n)])
         (for ([j (in-range m)])
-            (mset! result i j (abs (ref A i j)))
+            (mset! A i j (abs (ref A i j)))
         )
     )
-    result
+    A
 )
 
 (define (flomat-special-value? A)
