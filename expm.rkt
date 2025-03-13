@@ -120,7 +120,7 @@
 
 (define (ell T coeff m_val)
     ; Scaling the matrix T by the coefficient
-    (define scaledT (times (expt coeff (/ 1 (+ (* 2 m_val) 1))) (.abs! T)))
+    (define scaledT (times (expt coeff (/ 1 (+ (* 2 m_val) 1))) (.abs! (copy-flomat T))))
     
     ; Compute alpha
     ; In MATLAB: normAm just uses 1-norm explicitly if dim < 50
@@ -212,5 +212,5 @@
                 16380 182 1)])
 )
 
-(define A (matrix '[[1 2 3] [4 5 6] [7 8 9]]))
+(define A (matrix '((0.017805101599905476 0.1722176715660912) (-0.2029362425481171 0.06295344181270353))))
 (displayln (expm A))
