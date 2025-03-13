@@ -32,7 +32,7 @@
 
     ; Rescale powers of T
     (when (not (equal? s 0.0))
-        (set! A (times T (/ 1 (expt 2 s))))
+        (set! T (times T (/ 1 (expt 2 s))))
         
         (hash-set! Tpowers 2 (times (hash-ref Tpowers 2) (/ 1 (expt 2 (* 2 s)))))
 
@@ -224,6 +224,3 @@
                 670442572800 33522128640 1323241920 40840800 960960
                 16380 182 1)])
 )
-
-(define A (matrix '((0.017805101599905476 0.1722176715660912) (-0.2029362425481171 0.06295344181270353))))
-(displayln (expm A))
