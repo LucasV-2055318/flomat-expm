@@ -6,8 +6,7 @@
 (provide    flomat-abs
             flomat-special-value?
             flomat-diagonal?
-            exponentiate-diagonal
-            elementwise-exp)
+            exponentiate-diagonal)
 
 (define (flomat-abs A)
     (define n (nrows A))
@@ -53,18 +52,6 @@
     (define result (copy-flomat A))
     (for ([i (in-range min-dim)])
         (mset! result i i (exp (ref A i i)))
-    )
-    result
-)
-
-(define (elementwise-exp A) 
-    (define n (nrows A))
-    (define m (ncols A))
-    (define result (copy-flomat A))
-    (for ([i (in-range n)])
-        (for ([j (in-range m)])
-            (mset! result i j (exp (ref A i j)))
-        )
     )
     result
 )
