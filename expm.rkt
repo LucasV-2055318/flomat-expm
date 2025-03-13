@@ -17,6 +17,7 @@
         (error "Matrix must be square"))
 
     ; diagonal matrix -> exponentiate the diagonal
+    ; MATLAB also has a case for hemitian matrix, but this is not implemented
     (if (flomat-diagonal? A)
         (exponentiate-diagonal A)
         (exp-general A)
@@ -26,14 +27,13 @@
 (define (exp-general A)
     (define T A)
 
-    ; Get scaling and and pade parameters
+    ; Get scaling and and pade parameters, calculate powers of T
     (define-values (s m Tpowers) (scaling-and-pade-parameters T))   
 
-    ; rescale powers of T
+    ; Rescale powers of T
     (when (not (equal? s 0.0))
-
-        (set! T (times T (/ 1 (expt 2 s))))
-
+        (set! A (times T (/ 1 (expt 2 s))))
+        
         (hash-set! Tpowers 2 (times (hash-ref Tpowers 2) (/ 1 (expt 2 (* 2 s)))))
 
         (for ([i (in-range 4 7 2)])
@@ -45,7 +45,8 @@
     )
 
     (define F (pade-approx T Tpowers m))
-    ; squaring phase
+
+    ; Scale back up
     (for ([k (in-range s)])
         (set! F (times F F))
     )
@@ -60,6 +61,7 @@
     (define V (flomat-zeros n n))
 
     (if (= m 13)
+        ; m = 13 -> direct computation (more efficient?)
         (let* ([term1 (times 
                         T
                         (plus
@@ -95,23 +97,23 @@
             (set! V term2))
 
         ; MATLAB: numel(Tpowers) = 6 (+ 2), but this is static, so can be replaced with 6
+        ; m = 3, 5, 7, 9 -> loop over coefficients
         (let* ([strt 8])
             
-            ;; Generate the powers of T in Tpowers hash
+            ; Calculate missing (needed) powers of T
             (for ([k (in-range strt m 2)])
                 (hash-set! Tpowers k (times (hash-ref Tpowers (- k 2)) (hash-ref Tpowers 2))))
 
-            ;; Initialize U and V (Adjust for 0-based indexing by subtracting 1 from the index)
-            (set! U (times (list-ref c 1) I))  ;; c(2) in 1-based becomes c(1) in 0-based
-            (set! V (times (list-ref c 0) I))  ;; c(1) in 1-based becomes c(0) in 0-based
+            ; Initialize U and V 
+            (set! U (times (list-ref c 1) I))
+            (set! V (times (list-ref c 0) I)) 
 
-            ;; Compute U and V using the loop over coefficients (adjusting for 0-based)
+            ; compute U and V, loop over coefficients
             (for ([j (in-range m 1 -2)])
                 (set! U (plus U (times (list-ref c j) (hash-ref Tpowers (- j 1)))))
                 (set! V (plus V (times (list-ref c (- j 1)) (hash-ref Tpowers (- j 1))))))
-            ;; Multiply U by T
+
             (set! U (times T U))
-            ;;  Return U and V (if you need them)
         )
     )
     (plus (mldivide (minus V U) (times 2 U)) I)
@@ -124,10 +126,10 @@
     
     ; Compute alpha
     ; In MATLAB: normAm just uses 1-norm explicitly if dim < 50
-    ; For Matrix-Herbie I assume we will not use that large matrices
+    ; I assume matrices are < 50x50!
     (define alpha (/ (norm (power scaledT (+ (* 2 m_val) 1)) 1) (norm T 1)))
 
-    ; ; Compute t
+    ; Compute t
     (define t (max (ceiling (/ (log (* 2 (/ alpha 2.2204e-16)) 2) (* 2 m_val))) 0))
     
     t)
@@ -167,22 +169,34 @@
     (define eta1 (max d4 d6))
     (define s 0)
 
-    (if (and (<= eta1 (list-ref theta 0)) (equal? (ell T (list-ref coeff 0) 3) 0.0))
-        (values s 3 Tpowers)
-        (if (and (<= eta1 (list-ref theta 1)) (equal? (ell T (list-ref coeff 1) 5) 0.0))
-            (values s 5 Tpowers)
-            (let* (  [d8 (expt (norm (times (hash-ref Tpowers 4) (hash-ref Tpowers 4)) 1) 1/8)]
+    ; decide "which" Pade approximation to use, see get-pade-coeffs
+    ; return: s, m, Tpowers
+    ;           - s: scaling factor
+    ;           - m: Pade approximation indicator
+    ;           - Tpowers: powers of T 
+    (cond
+        [(and (<= eta1 (list-ref theta 0)) (equal? (ell T (list-ref coeff 0) 3) 0.0))
+            (values s 3 Tpowers)]
+        
+        [(and (<= eta1 (list-ref theta 1)) (equal? (ell T (list-ref coeff 1) 5) 0.0))
+            (values s 5 Tpowers)]
+        
+        [else             
+            ; I assume matrices are < 50x50, MATLAB makes a distinction for > 50x50 matrices here!
+            (let*  ([d8 (expt (norm (times (hash-ref Tpowers 4) (hash-ref Tpowers 4)) 1) 1/8)]
                     [eta3 (max d6 d8)])
-                ; MATLAB: for "small matrices"... again I assume matrices are < 50x50
-                (if (and (<= eta3 (list-ref theta 2)) (equal? (ell T (list-ref coeff 2) 7) 0.0))
-                    (values s 7 Tpowers)
-                    (if (and (<= eta3 (list-ref theta 3)) (equal? (ell T (list-ref coeff 3) 9) 0.0))
-                        (values s 9 Tpowers)
+                (cond 
+                    [(and (<= eta3 (list-ref theta 2)) (equal? (ell T (list-ref coeff 2) 7) 0.0))
+                        (values s 7 Tpowers)]
+                    
+                    [(and (<= eta3 (list-ref theta 3)) (equal? (ell T (list-ref coeff 3) 9) 0.0))
+                        (values s 9 Tpowers)]
+                    
+                    [else
+                        ; I assume matrices are < 50x50, MATLAB makes a distinction for > 50x50 matrices here!
                         (let* ( [d10  (expt (norm (times (hash-ref Tpowers 4) (hash-ref Tpowers 6)) 1) 1/10)]
                                 [eta4 (max d8 d10)]
                                 [eta5 (min eta3 eta4)])
-                            ; again for small matrices...
-
                             (set! s (max (ceiling (log (/ eta5 (list-ref theta 4)) 2)) 0.0))
                             (set! s (+ s (ell (times T (/ 1 (expt 2 s))) (list-ref coeff 4) 13)))
 
@@ -192,10 +206,9 @@
 
                             (values s 13 Tpowers)
                         )
-                    )
+                    ]
                 )
-            )
-        )
+            )]
     )
 )
 
